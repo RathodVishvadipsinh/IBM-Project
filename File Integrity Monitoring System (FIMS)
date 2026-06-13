@@ -1,0 +1,250 @@
+# Updated Theme: Purple Neon UI
+import hashlib
+import time
+import smtplib
+from email.mime.text import MIMEText
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+import tkinter as tk
+from tkinter import filedialog, messagebox
+import threading
+
+# ---------------- HASH ----------------
+def generate_hash(file_path):
+    hash_algo = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            while chunk := f.read(4096):
+                hash_algo.update(chunk)
+        return hash_algo.hexdigest()
+    except:
+        return None
+
+# ---------------- EMAIL ----------------
+def send_email_alert(file_path):
+    sender_email = "2502031830029@silveroakuni.ac.in"
+    receiver_email = "vishubha9899@gmail.com"
+    password = "your_app_password"
+
+    msg = MIMEText(f"🚨 File Modified:\n{file_path}")
+    msg['Subject'] = "Security Alert 🚨"
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, password)
+        server.send_message(msg)
+        server.quit()
+        print(" Email Sent")
+    except Exception as e:
+        print("Email Error:", e)
+
+# ---------------- MONITOR ----------------
+class MonitorHandler(FileSystemEventHandler):
+    def __init__(self):
+        self.hashes = {}
+
+    def on_modified(self, event):
+        if not event.is_directory:
+            path = event.src_path
+            new_hash = generate_hash(path)
+
+            if path in self.hashes:
+                if self.hashes[path] != new_hash:
+                    print(" Modified:", path)
+                    send_email_alert(path)
+
+            self.hashes[path] = new_hash
+
+def start_monitor(folder):
+    observer = Observer()
+    handler = MonitorHandler()
+    observer.schedule(handler, folder, recursive=True)
+    observer.start()
+
+    print(" Monitoring Started...")
+
+    try:
+        while True:
+            time.sleep(1)
+    except:
+        observer.stop()
+
+    observer.join()
+
+# ---------------- APP ----------------
+class App:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Cyber Security Tool 🛡️")
+        self.root.geometry("1000x650")
+        self.root.configure(bg="#1a102c")
+
+        # NAVBAR
+        navbar = tk.Frame(root, bg="#1a102c", height=70)
+        navbar.pack(fill="x")
+
+        tk.Label(navbar, text="🛡️ Cyber Security Tool",
+                 bg="#1a102c", fg="#c084fc",
+                 font=("Segoe UI", 16, "bold")).pack(side="left", padx=20)
+
+        def nav_btn(text, cmd):
+            return tk.Button(navbar, text=text, command=cmd,
+                             bg="#1a102c", fg="#c084fc",
+                             bd=0, font=("Segoe UI", 12, "bold"),
+                             cursor="hand2")
+
+        nav_btn("🏠 Home", self.show_home).pack(side="right", padx=20)
+        nav_btn("📄 About", self.show_about).pack(side="right", padx=20)
+        nav_btn("🔐 Why Important", self.show_why).pack(side="right", padx=20)
+
+        # CONTAINER
+        self.container = tk.Frame(root, bg="#1a102c")
+        self.container.pack(expand=True, fill="both")
+
+        self.frames = {}
+
+        for F in (HomePage, AboutPage, WhyPage):
+            frame = F(self.container, self)
+            self.frames[F] = frame
+            frame.place(relwidth=1, relheight=1)
+
+        self.show_home()
+
+    def show_home(self):
+        self.frames[HomePage].tkraise()
+
+    def show_about(self):
+        self.frames[AboutPage].tkraise()
+
+    def show_why(self):
+        self.frames[WhyPage].tkraise()
+
+# ---------------- CARD ----------------
+def create_card(parent):
+    frame = tk.Frame(parent, bg="#2a1b47")
+    frame.config(highlightbackground="#c084fc", highlightthickness=2)
+    return frame
+
+# ---------------- HOME ----------------
+class HomePage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg="#1a102c")
+
+        card = create_card(self)
+        card.place(relx=0.5, rely=0.5, anchor="center",
+                   width=550, height=350)
+
+        tk.Label(card, text="🛡️ File Integrity Checker",
+                 font=("Segoe UI", 20, "bold"),
+                 bg="#2a1b47", fg="#c084fc").pack(pady=15)
+
+        tk.Label(card, text="Real-time protection against file tampering & cyber threats",
+                 font=("Segoe UI", 11),
+                 bg="#2a1b47", fg="#d8b4fe").pack(pady=5)
+
+        tk.Button(card, text="📁 Start Monitoring",
+                  font=("Segoe UI", 12, "bold"),
+                  bg="#c084fc", fg="black",
+                  padx=20, pady=10,
+                  relief="flat",
+                  cursor="hand2",
+                  command=self.choose_folder).pack(pady=25)
+
+    def choose_folder(self):
+        folder = filedialog.askdirectory()
+        if folder:
+            messagebox.showinfo("Started", f"Monitoring:\n{folder}")
+            threading.Thread(target=start_monitor,
+                             args=(folder,), daemon=True).start()
+
+# ---------------- ABOUT ----------------
+class AboutPage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg="#1a102c")
+
+        card = create_card(self)
+        card.place(relx=0.5, rely=0.5, anchor="center", width=750)
+
+        container = tk.Frame(card, bg="#2a1b47")
+        container.pack(padx=30, pady=30, fill="both", expand=True)
+
+        tk.Label(container, text="📄 ABOUT PROJECT",
+                 font=("Segoe UI", 18, "bold"),
+                 bg="#2a1b47", fg="#c084fc").pack(pady=(0, 15))
+
+        text = """This Cyber Security Tool monitors files and detects unauthorized changes.
+
+🔍 Core Concept:
+Each file has a unique hash (SHA-256).
+If modified → hash changes → intrusion detected.
+
+⚙️ Features:
+• Real-time monitoring
+• Instant detection
+• Email alerts
+• Fast & lightweight
+
+💻 Technologies:
+• Python
+• Tkinter
+• Watchdog
+• SMTP
+
+🎯 Goal:
+Simple & powerful cybersecurity solution.
+
+👨‍💻 Developer:
+Rathod Vishvadipsinh
+"""
+
+        tk.Label(container, text=text,
+                 font=("Segoe UI", 11),
+                 bg="#2a1b47", fg="#f3e8ff",
+                 justify="left", wraplength=650).pack()
+
+# ---------------- WHY ----------------
+class WhyPage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent, bg="#1a102c")
+
+        card = create_card(self)
+        card.place(relx=0.5, rely=0.5, anchor="center", width=750)
+
+        container = tk.Frame(card, bg="#2a1b47")
+        container.pack(padx=30, pady=30, fill="both", expand=True)
+
+        tk.Label(container, text="🔐 WHY FILE INTEGRITY?",
+                 font=("Segoe UI", 18, "bold"),
+                 bg="#2a1b47", fg="#c084fc").pack(pady=(0, 15))
+
+        text = """📌 Cyber Protection:
+Detects hacking & unauthorized access.
+
+📌 Data Security:
+Prevents file corruption or tampering.
+
+📌 Malware Detection:
+Alerts when files are changed.
+
+📌 Used In:
+• Banks 🏦
+• Cloud ☁️
+• Government 🏛️
+• IT Systems 💻
+
+🚀 Conclusion:
+File integrity is essential in cybersecurity.
+"""
+
+        tk.Label(container, text=text,
+                 font=("Segoe UI", 11),
+                 bg="#2a1b47", fg="#f3e8ff",
+                 justify="left", wraplength=650).pack()
+
+# ---------------- RUN ----------------
+root = tk.Tk()
+app = App(root)
+root.mainloop()
